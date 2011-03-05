@@ -21,8 +21,13 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
+#ifdef __WIN32__
 #include <windows.h>
 #include <malloc.h>
+#else
+#include <stdlib.h>
+#include <strings.h>
+#endif
 
 #include "util.h"
 
@@ -46,12 +51,14 @@ error(const char *format, ...)
 	va_start(args, format);
 	printf("[ERROR]: ");
 	vfprintf(stderr, format, args);
+#ifdef __WIN32__
 	if (WSAGetLastError() != 0) {
 		FormatMessage(
 			FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 				0, WSAGetLastError(), 0, buffer, 255, 0);
 		printf("[ERROR]: %s (%i)\n", buffer, WSAGetLastError());
 	}
+#endif
 	va_end(args);
 }
 
@@ -122,7 +129,9 @@ malloc_or_die(size_t size)
 	return ptr;
 }
 
+// XXX - find unix equivalent
 // http://msdn.microsoft.com/en-us/library/h0c183dk(VS.71).aspx
+#ifdef __WIN32__
 void heapdump( void )
 {
    _HEAPINFO hinfo;
@@ -155,3 +164,4 @@ void heapdump( void )
    } while (heapstatus == _HEAPOK);
 
 }
+#endif

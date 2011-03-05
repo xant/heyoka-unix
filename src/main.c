@@ -20,7 +20,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __WIN32__
 #include <windows.h>
+#else
+#endif
 
 #include "net.h"
 #include "master.h"
@@ -53,15 +56,17 @@ int main(int argc, char **argv)
 	int o;
 	int mode = MODE_MASTER;
 	char domain[NET_MAX_QNAME];
-	WSADATA wsaData;
 	uint16 port;
 	int do_listen;
+#ifdef WIN32
+	WSADATA wsaData;
 
 	if ((retval = WSAStartup(0x202, &wsaData)) != 0) {
         error("Server: WSAStartup() failed with error %d\n", retval);
         WSACleanup();
         return -1;
     }
+#endif
 	
 	*domain = 0;
 	do_listen = 0;
@@ -80,7 +85,7 @@ int main(int argc, char **argv)
                       break;
 				case 'p':
 					port = (uint16)atoi(argv[++o]);
-					if ((port<1) || (port>65535)) {
+					if ((port<1) || (port>=65535)) { // XXX - port is a 16bit integer, it can't never be greater than 65535
 						  port = 3389;
 					}
 					break;

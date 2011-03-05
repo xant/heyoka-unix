@@ -23,6 +23,10 @@
 
 #include "types.h"
 #include "tunnel.h"
+#ifndef __WIN32__
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
 
 #define NET_ERROR	-1
 #define NET_TIMEOUT	 0

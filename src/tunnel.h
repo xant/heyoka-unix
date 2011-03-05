@@ -21,7 +21,11 @@
 #ifndef _TUNNEL_H
 #define _TUNNEL_H
 
+#ifdef __WIN32__
 #include <windns.h>
+#else
+#endif
+
 #include <string.h>
 
 #include "types.h"
@@ -109,6 +113,9 @@ typedef struct _tunnel_ns_list_t {
 					"\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff"
 #define TEST_DATA_SIZE		(4 * 16)
 #define TEST_DATA_RESPONSE TEST_DATA_REQUEST
+#ifndef IP4_ADDRESS
+#define IP4_ADDRESS uint32_t
+#endif
 #define DNS_MAX_SERVER_LIST_SIZE	(8 * sizeof(IP4_ADDRESS))
 
 uint32				*tunnel_get_server_list();

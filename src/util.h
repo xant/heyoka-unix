@@ -33,4 +33,8 @@ void heapdump( void );
 
 void    *malloc_or_die(size_t size);
 
+#ifndef __WIN32__
+#define Sleep sleep
+#endif
+
 #endif

@@ -20,8 +20,12 @@
 
 #include <string.h>
 #include <stdlib.h>
+#ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include <netdb.h>
+#endif
 #include <time.h>
 	
 #include "net.h"
@@ -771,5 +775,9 @@ net_get_local_ip()
 	}
 	local_ip = *(struct in_addr *)*he->h_addr_list;
 
+#ifdef __WIN32__
 	return local_ip.S_un.S_addr;
+#else
+        return local_ip.s_addr;
+#endif
 }

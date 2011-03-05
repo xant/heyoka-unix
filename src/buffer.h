@@ -21,7 +21,12 @@
 #ifndef _BUFFER_H
 #define _BUFFER_H
 
+#ifdef __WIN32__
 #include <windows.h>
+#else
+#include <pthread.h>
+#define CRITICAL_SECTION pthread_mutex_t
+#endif
 
 #include "types.h"
 

@@ -21,9 +21,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __WIN32__
 #include <winsock2.h>
 #include <windns.h>
 #include <windows.h>
+#endif
 
 #include "master.h"
 #include "buffer.h"
@@ -37,7 +39,11 @@ extern int verbose;
 
 static master_slave_tracker_t *slaves[MAX_SLAVES];
 
+#ifdef __WIN32__
 static DWORD WINAPI 
+#else
+static void *
+#endif
 master_wait_for_connection(void *s_ptr)
 {
 	master_slave_tracker_t *slave;
@@ -77,7 +83,11 @@ master_create_slave(char *domain, uint16 port, int do_listen)
 		if (!slaves[ticket]) {
 
 			slaves[ticket] = (master_slave_tracker_t *) malloc_or_die(sizeof(master_slave_tracker_t));
+#ifdef __WIN32__
 			GetSystemTime(&(slaves[ticket]->last_used));
+#else
+            gettimeofday(&(slaves[ticket]->last_used), NULL);
+#endif
 			slaves[ticket]->ticket		 = ticket;
 			slaves[ticket]->domain		 = domain;
 			slaves[ticket]->tcp_port	= port;
@@ -85,7 +95,13 @@ master_create_slave(char *domain, uint16 port, int do_listen)
 
 			// create thread to wait asyncronically for a tcp connection to be established
 			if (do_listen) {
+#ifdef __WIN32__
 				CreateThread(0, 0, master_wait_for_connection, slaves[ticket], 0, 0);
+#else
+                pthread_t new_thread;
+                pthread_create(&new_thread, NULL, master_wait_for_connection, slaves[ticket]);
+                pthread_detach(new_thread);
+#endif
 			} else {
 				slaves[ticket]->buffer->fd_r = net_socket(NET_SOCKET_TCP, 0, 0, 0); 
 				if (slaves[ticket]->buffer->fd_r == NET_ERROR) {
@@ -168,7 +184,7 @@ master_handle_hello(tunnel_header_slave_flag_t *slave_flag,
 	ZERO_FLAG(&master_flag);
 	master_flag.hello_reply = 1;
 	master_flag.binary_txt = slave_flag->expect_binary;
-	(uint8) *enc_data = net_encode_flag((tunnel_header_flag_t *) &master_flag);
+	*((uint8 *)enc_data) = net_encode_flag((tunnel_header_flag_t *) &master_flag);
 
 	hdr.last_received = 0;
 	hdr.sequence = 0;
@@ -244,7 +260,11 @@ master_handle_data(tunnel_header_slave_flag_t *slave_flag,	// flag from the slav
 	}
 
 	// update slave's last used timestamp
-	GetSystemTime(&(slave->last_used));
+#ifdef __WIN32__
+    GetSystemTime(&(slave->last_used));
+#else
+    gettimeofday(&(slave->last_used), NULL);
+#endif
 
 	// spoofed packets will be answered with an NXDOMAIN packet
 	if (slave_flag->spoofed) {

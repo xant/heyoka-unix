@@ -18,7 +18,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  */
 
+#ifdef __WIN32__
 #include <windows.h>
+#endif
 
 #include "buffer.h"
 #include "util.h"
@@ -83,7 +85,11 @@ buffer_new(unsigned int size, int fd_r, int fd_w)
 	buffer->data_read = (uint8 *) malloc_or_die(size);
 	buffer->fd_r = fd_r; // file descriptor to read from
 
+#ifdef __WIN32__
 	InitializeCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_init(&buffer->lock, NULL);
+#endif
 
 	return buffer;
 }
@@ -106,7 +112,11 @@ buffer_write(buffer_t *buffer, uint8 *data, unsigned int length, uint16 seqn, ui
 		return BUFFER_ERROR;
 	}
 
+#ifdef __WIN32__
 	EnterCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_lock(&buffer->lock);
+#endif
 	// Some data has been acknowledged since last packet?
 	if ( (buffer->ackn_r == ackn) 	
 			// is there actually data waiting to be ack'd?
@@ -120,7 +130,11 @@ buffer_write(buffer_t *buffer, uint8 *data, unsigned int length, uint16 seqn, ui
 		buffer->ack_r_counter = 0; 
 	}
 	ackn_s = buffer->ackn_s;
+#ifdef __WIN32__
 	LeaveCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_unlock(&buffer->lock);
+#endif
 
 	// If the packet had no data, we could return...
 	if (length > 0) {
@@ -189,12 +203,20 @@ buffer_write(buffer_t *buffer, uint8 *data, unsigned int length, uint16 seqn, ui
 	memset(buffer->map_write + pos_start, 0x00, nbytes);
 
 	// update the ack#
+#ifdef __WIN32__
 	EnterCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_lock(&buffer->lock);
+#endif
 	buffer->ackn_s = (ackn_s + nbytes) % (MAX_SEQ + 1); //buffer->size
 	if (verbose > 2) {
 		printf("buffer.c: wrote %i bytes (ackn was %i is now: %i)\n", nbytes, ackn_s, buffer->ackn_s);
 	}
+#ifdef __WIN32__
 	LeaveCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_unlock(&buffer->lock);
+#endif
 	
 	return nbytes;
 }
@@ -213,11 +235,19 @@ buffer_read(buffer_t *buffer, uint8 *data, unsigned int length, uint16 *seqn, ui
 		return BUFFER_ERROR;
 	}
 
+#ifdef __WIN32__
 	EnterCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_lock(&buffer->lock);
+#endif
 	ackn_r = buffer->ackn_r;
 	ackn_s = buffer->ackn_s; 
 	ack_r_counter = buffer->ack_r_counter;
+#ifdef __WIN32__
 	LeaveCriticalSection(&(buffer->lock));
+#else
+        pthread_mutex_unlock(&buffer->lock);
+#endif
 
 	if (reread) {
 		*reread = 0;

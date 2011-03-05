@@ -1,4 +1,4 @@
-. H/* 
+/* 
  * This file is part of heyoka, and you should have received it
  * with the rest of the heyoka tarball. For the latest release,
  * check http://heyoka.sourceforge.net
@@ -19,9 +19,13 @@
  */
 
 #include <time.h>
+#ifdef __WIN32__
 #include <winsock2.h>
 #include <windns.h>
 #include <windows.h>
+#else
+#include <stdlib.h>
+#endif
 
 #include "slave.h"
 #include "buffer.h"
@@ -42,6 +46,50 @@
 
 extern int verbose;
 
+#ifndef __WIN32__
+
+#include <sys/stat.h>
+
+static void
+DnsQueryConfig(uint32 *list, unsigned int *list_size)
+{
+    FILE *resolv_conf;
+    size_t file_size = 0;
+    struct stat file_stat;
+    unsigned int max_size = *list_size;
+
+    memset(list, 0, sizeof(uint32) * max_size);
+    if (stat("/etc/resolv.conf", &file_stat) == 0) {
+        // XXX - hard-coded shit
+        resolv_conf = fopen("/etc/resolv.conf", "r");
+        if (resolv_conf) {
+            char *buffer = malloc(file_stat.st_size);
+            size_t rb = fread(buffer, file_stat.st_size, 1, resolv_conf);
+            if (rb != file_stat.st_size) {
+                // TODO - error messages
+            } else {
+                char *p = buffer;
+                int line = 0;
+                while ((p - buffer) <= rb) {
+                    char *l = p;
+                    if (line > max_size)
+                        break;
+                    while ((p - buffer) <= rb && *p != '\n')
+                        p++;
+                    if (*p == '\n') {
+                        memcpy(&list[line++], l, p-l);
+                    }
+                    p++;
+                }
+                *list_size = line;
+            }
+            free(buffer);
+            fclose(resolv_conf);
+        }
+    }
+}
+#endif
+
 static uint32 *
 slave_get_server_list()
 {
@@ -53,7 +101,11 @@ slave_get_server_list()
 
 	debug("retrieving name server list\n");
 
+#ifdef __WIN32__
 	DnsQueryConfig(DnsConfigDnsServerList, 0, 0, 0, server_list, &list_size);
+#else
+	DnsQueryConfig(server_list, &list_size);
+#endif
 
 	server_count = (unsigned int) server_list[0];
 
@@ -268,7 +320,11 @@ slave_handshake(slave_instance_t * slave, char *domain, uint32 *ns_list)
 	return working_ns_list;
 }
 
+#ifdef __WIN32__
 static DWORD WINAPI 
+#else
+static void *
+#endif
 slave_wait_for_connection(void *s_ptr)
 {
 	slave_instance_t *slave;
@@ -390,12 +446,20 @@ slave_listen(void *p)
 /*
  * Slave sending function
  */
+#ifdef __WIN32__
 static DWORD WINAPI 
+#else
+static void *
+#endif
 slave_send(void *p) 
 {
 	slave_instance_t *slave;			// slave instance
 	struct sockaddr_in to_addr;			// socket address structure of ns
+#ifdef __WIN32__
 	SYSTEMTIME now, then;				// to calculate the timeout for heartbeats
+#else
+        struct timeval now, then;
+#endif
 	uint8 out_data[NET_MAX_QNAME + 1];	// complete data buffer (flag, encoded header and payload)
 	unsigned int data_length;			// data length
 	tunnel_header_t *header;			// pointer to header in the data buffer
@@ -418,7 +482,11 @@ slave_send(void *p)
 	to_addr.sin_port = htons(NET_DEFAULT_DNS_PORT);
 
 	// get current time to begin heartbeat timeout
+#ifdef __WIN32__
 	GetSystemTime(&then);
+#else
+    gettimeofday(&then, NULL);
+#endif
 
 	// set pointers into data buffer
 	header = (tunnel_header_t *) data;
@@ -439,12 +507,20 @@ slave_send(void *p)
 		current_ns = slave->ns_list[ns_idx];
 
 		// get current time
+#ifdef __WIN32__
 		GetSystemTime(&now);
+#else
+        gettimeofday(&now);
+#endif
 
 		ZERO_FLAG(&flag);
 
 		// check if it is time to send a heart beat
+#ifdef __WIN32__
 		if ((unsigned int) (now.wMilliseconds - then.wMilliseconds) > slave->heartbeat_freq ) {
+#else
+		if ((unsigned int) (now.tv_usec - then.tv_usec) > slave->heartbeat_freq * 1000) {
+#endif
 			
 			// update the header structure
 //			header->last_received = get_ackn(slave->buffer);
@@ -577,7 +653,13 @@ slave_run(char *domain, int service_port, char *service_addr, int do_listen)
 
 	// create sockets to write data in and out from or to the buffer
 	if (do_listen) {
+#ifdef __WIN32__
 		CreateThread(0, 0, slave_wait_for_connection, slave, 0, 0);
+#else
+                pthread_t new_thread;
+                pthread_create(&new_thread, NULL, slave_wait_for_connection, slave);
+                pthread_detach(new_thread);
+#endif
 	} else {
 		slave->buffer->fd_r = net_socket(NET_SOCKET_TCP, 0, 0, 0); 
 		if (slave->buffer->fd_r == NET_ERROR) {
@@ -633,8 +715,14 @@ slave_run(char *domain, int service_port, char *service_addr, int do_listen)
 	slave->ns_list = slave_handshake(slave, domain, ns_test_list);
 	
 	// create the sending thread
+#ifdef __WIN32__
 	CreateThread(0, 0, slave_send, slave, 0, 0);
-
+#else
+    pthread_t new_thread;
+    pthread_create(&new_thread, NULL, slave_send, slave);
+    pthread_detach(new_thread);
+#endif
+	
 	// start listening for responses from the master
 	slave_listen(slave);
 	

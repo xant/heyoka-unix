@@ -20,7 +20,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef __WIN32__
 #include <windows.h>
+#endif
 
 #include "alt_buffer.h"
 #include "util.h"

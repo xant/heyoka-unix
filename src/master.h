@@ -25,7 +25,11 @@
 #include "buffer.h"
 
 typedef struct _master_slave_tracker_t {
+#ifdef __WIN32__
 	SYSTEMTIME last_used;
+#else
+        struct timeval last_used;
+#endif
 	uint8 ticket;
 	char *domain;
 	buffer_t *buffer;
