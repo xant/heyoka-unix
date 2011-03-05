@@ -1,0 +1,30 @@
+TODO's:
+--------------
+
+ 1. Buffer moves to bytes instead of packets. We use 2 buffers of equal size: the first contains
+    the data, the second maps the received/unreceived data: 1 for data present, 0 for data not
+    present. [DONE]
+ 2. Header optimization (e.g.: codec down to 1 bit) 
+ 3. http://msdn.microsoft.com/en-us/library/aa365924.aspx to find the source IP address to
+    set in the packets	[DONE: net_get_local_ip() in net.c/h]
+ 4. read from stdin and write to stdout
+ 5. channel management (t1 for control, t2-tn for data connection)
+ 6. code cleanup
+ 8. UI
+ 9. API
+ 10. find live hosts to spoof
+ 11. support for xp sp2
+ 12. dll injectiom
+ 13. Fix a bug: when spoofed source ip == ip of master and there's no bind inbetweet (e.g. as we did it for testing)
+     the master will quit the connection for some reason. This is no real big problem as a scenario without DNS server 
+     inbetween is unlikely, but better be solved anyway...
+
+99. grep for TODO in all the source files and do the todo!
+
+ 1. Add CNAME support (?)
+ 2. Investigate DNS Extensions for Data Transport (http://www.ietf.org/rfc/rfc2671.txt)
+ 3. Add support for multiple TXT entries in one response (up to 1k per packet)
+ 4. Response to spoofed requests must contain an IP, in order to avoid IPS signatures based
+    on NXDOMAIN. Note: the responses to spoofed requests should trigger lots of PORT UNREACHABLE.
+    However, we can use 135 as a source port. Or just rely on the fact that windows firewalls will
+    simply drop the unsolicited packets :)
