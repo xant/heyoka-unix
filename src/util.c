@@ -27,6 +27,7 @@
 #else
 #include <stdlib.h>
 #include <strings.h>
+#include <string.h>
 #endif
 
 #include "util.h"

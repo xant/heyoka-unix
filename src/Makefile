@@ -7,7 +7,7 @@ OBJECTS=alt_buffer.o\
 	util.o
 
 all: heyoka
-	$(CC) $(CFLAGS) main.c $(OBJECTS) -o heyoka
+	$(CC) $(CFLAGS) main.c $(OBJECTS) -o heyoka -lpthread
 
 heyoka: $(OBJECTS)
 
